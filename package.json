@@ -1,21 +1,31 @@
 {
-  "name": "cardify",
-  "version": "1.0.0",
+  "name": "@chemical-avocado/cardify",
+  "version": "0.0.1-alpha.4",
   "type": "module",
   "main": "src/index.ts",
+  "bin": {
+    "cardify": "dist/index.js"
+  },
   "license": "MIT",
   "scripts": {
-    "debug": "nodemon"
+    "debug": "nodemon",
+    "build": "tsc"
+  },
+  "repository": "https://github.com/ChemicalAvocado/cardify",
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@types/cli-progress": "^3.11.5",
     "@types/fs-extra": "^11.0.4",
+    "@types/inquirer": "^9.0.7",
     "@types/recursive-readdir": "^2.2.4",
     "cli-progress": "^3.12.0",
     "cp-file": "9",
     "dotenv": "^16.3.1",
     "filesize": "^10.1.0",
     "fs-extra": "^11.1.1",
+    "inquirer": "^9.2.12",
     "nodemon": "^3.0.1",
     "recursive-readdir": "^2.2.3",
     "ts-node": "^10.9.1",

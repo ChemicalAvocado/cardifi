@@ -5,6 +5,7 @@
         "moduleResolution": "node",
         "sourceMap": true,
         "baseUrl": "src",
+        "outDir": "dist",
         "forceConsistentCasingInFileNames": true,
         "esModuleInterop": true,
         "experimentalDecorators": true,

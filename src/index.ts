@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import dotenv from 'dotenv';
 import recur from 'recursive-readdir';
 import bar from 'cli-progress';
@@ -5,6 +7,7 @@ import { filesize } from 'filesize';
 import { symlink, mkdir, unlink, lstat } from 'node:fs/promises';
 import { lstatSync } from 'node:fs'
 import copyFile from 'cp-file';
+import inquirer from 'inquirer';
 
 import path from 'node:path';
 
@@ -20,6 +23,8 @@ interface CopyFile {
 }
 
 const { SOURCE = '', TARGET = '', thresholdInMB = 10 } = process.env;
+
+
 
 const load = async (copies: CopyFile[], workers = 4) => {
 
@@ -106,11 +111,22 @@ const load = async (copies: CopyFile[], workers = 4) => {
 
 (async () => {
 
+    const answers = await inquirer.prompt([{
+        type: 'input',
+        name: 'last_name',
+        message: "What's your last name",
+        default() {
+          return 'Doe';
+        },
+    }]);
+
+    console.log({answers});
+
     const copies: CopyFile[] = [];
 
     await recur(SOURCE, [(file, stats) => {
 
-        if (stats.size > +thresholdInMB * 1000 * 1000 && !file.endsWith(".exe")/* && !file.includes(CARDI_PREFIX)*/) {
+        if (stats.size > +thresholdInMB * 1000 * 1000 && !file.endsWith(".exe")) {
             if (!lstatSync(file).isSymbolicLink()) {
 
                 const originalDirSegments = file.split(/[\\\/]/g);
