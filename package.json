@@ -1,8 +1,7 @@
 {
   "name": "cardifi",
-  "version": "0.0.1-alpha.2",
+  "version": "0.0.1-alpha.5",
   "type": "module",
-  "main": "src/index.ts",
   "bin": {
     "cardifi": "dist/index.js"
   },
@@ -27,6 +26,7 @@
     "filesize": "^10.1.0",
     "fs-extra": "^11.1.1",
     "inquirer": "^9.2.12",
+    "multiply-tool": "^1.0.1",
     "nodemon": "^3.0.1",
     "recursive-readdir": "^2.2.3",
     "ts-node": "^10.9.1",
