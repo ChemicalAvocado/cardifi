@@ -1,6 +1,7 @@
 {
   "name": "cardific",
   "version": "0.0.1-beta.1",
+  "main": "src/index.ts",
   "type": "module",
   "bin": {
     "cardifi": "dist/index.js"

@@ -3,17 +3,12 @@
 import recur from 'recursive-readdir';
 import bar from 'cli-progress';
 import { filesize as filesizeFormat } from 'filesize';
-import { symlink, mkdir, unlink, lstat, readlink, writeFile } from 'node:fs/promises';
-import { lstatSync } from 'node:fs'
+import { symlink, mkdir, unlink, lstat, readlink, writeFile, stat } from 'node:fs/promises';
+import { lstatSync, existsSync } from 'node:fs'
 import copyFile from 'cp-file';
 import inquirer from 'inquirer';
-//import PressToContinuePrompt from 'inquirer-press-to-continue';
-//import type { KeyDescriptor } from 'inquirer-press-to-continue';
 
 import path from 'node:path';
-import { stat } from 'fs-extra';
-
-//inquirer.registerPrompt('press-to-continue', PressToContinuePrompt);
 
 interface CopyFile {
     src: string,
@@ -24,9 +19,7 @@ interface CopyFile {
     filesize: number
 }
 
-//const { SOURCE = '', TARGET = '', thresholdInMB = 10 } = process.env;
-
-const CARDIFI_PREFIX = '__Cardify'
+const CARDIFI_PREFIX = '__CARDIFI__';
 
 const load = async (copies: CopyFile[], workers = 4, createLink = true) => {
 
@@ -57,6 +50,9 @@ const load = async (copies: CopyFile[], workers = 4, createLink = true) => {
                 let lastUpdate = performance.now();
                 let lastWritten = 0;
                 await mkdir(targetDir, { recursive: true });
+                if(existsSync(target)){
+                    await unlink(target);
+                }
                 await copyFile(src, target).on('progress', (p) => {
 
                     const overallPercentage = (settledSize + p.writtenBytes) / overallSize * 100;
@@ -110,11 +106,14 @@ const load = async (copies: CopyFile[], workers = 4, createLink = true) => {
     console.error(failed.join('\n'));
 };
 
-const restore = async () => {
+const restore = async (cwd: string) => {
     const symlinks: string[] = [];
     
     //process.cwd();
-    await recur('D:\\EAPlay\\Crysis 3', [(file) => {
+    //const cwd = process.cwd();
+    const cwdSegments = cwd.split(path.sep);
+
+    await recur(cwd, [(file) => {
         if (lstatSync(file).isSymbolicLink()) {
             symlinks.push(file);
         }
@@ -124,18 +123,23 @@ const restore = async () => {
     const copies: CopyFile[] = [];
     for(const symlink of symlinks){
         const linkedPath = await readlink(symlink);
-        const originalDirSegments = linkedPath.split(path.delimiter);
+        const originalDirSegments = linkedPath.split(path.sep);
 
         if(originalDirSegments.includes(CARDIFI_PREFIX)){
             const {size} = await stat(linkedPath);
             const filename = originalDirSegments.pop();
 
-            const originalPathSegments = originalDirSegments.slice(originalDirSegments.indexOf(CARDIFI_PREFIX));
+            const originalPathSegments = originalDirSegments.slice(originalDirSegments.indexOf(CARDIFI_PREFIX) + 1);
             const drive = originalPathSegments.shift().replace('_DRIVE', ':');
-            const originalDirectory = path.join(drive, ...originalPathSegments);
+
+            const originalDirectorySegments = [drive, ...originalPathSegments];
+            const originalDirectory = path.join(...originalDirectorySegments);
             const originalPath = path.join(originalDirectory, filename);
 
-            console.log(`${copies.length + 1}. ${filename} (${filesizeFormat(size)}) -> ${originalPath}`)
+            const relativePathSegments = originalDirectorySegments.slice(cwdSegments.length);
+
+            const displayPath = path.join(...relativePathSegments, filename);
+            console.log(`${copies.length + 1}. ${linkedPath} (${filesizeFormat(size)}) -> ${originalPath}`)
             
             copies.push({
                 src: linkedPath,
@@ -143,7 +147,7 @@ const restore = async () => {
                 targetDir: originalDirectory,
                 filename,
                 filesize: size,
-                displayPath: originalPath
+                displayPath
             })
         }
     }
@@ -160,7 +164,7 @@ const move = async (sourceRoot: string, cardifiRoot: string, thresholdInMB: numb
         if (stats.size > +thresholdInMB * 1000 * 1000 && !file.endsWith(".exe")) {
             if (!lstatSync(file).isSymbolicLink()) {
 
-                const originalDirSegments = file.split(path.delimiter);
+                const originalDirSegments = file.split(path.sep);
                 const filename = originalDirSegments.pop();
 
                 const patch = [...originalDirSegments];
@@ -198,10 +202,20 @@ const move = async (sourceRoot: string, cardifiRoot: string, thresholdInMB: numb
 
 (async () => {
 
-    const [arg] =process.argv
+    const [arg] = process.argv
 
     if(arg == '-r'){
-        await restore();
+
+        const answers = await inquirer.prompt([{
+            type: 'input',
+            name: 'sourceRoot',
+            message: 'Entry point:',
+            default: () => process.cwd()
+        }]);
+        console.log({answers});
+        const {sourceRoot} = answers;
+        await restore(sourceRoot);
+
     }else{
 
         const answers = await inquirer.prompt([{
