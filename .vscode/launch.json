@@ -16,6 +16,14 @@
                 "<node_internals>/**"
             ],
             "type": "node"
+        },
+        {
+            "name": "Attach",
+            "request": "attach",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "type": "node"
         }
     ]
 }
