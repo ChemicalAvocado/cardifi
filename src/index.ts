@@ -22,7 +22,7 @@ interface CopyFile {
     size: number
 }
 
-const { SOURCE = '', TARGET = '', thresholdInMB = 10 } = process.env;
+//const { SOURCE = '', TARGET = '', thresholdInMB = 10 } = process.env;
 
 
 
@@ -113,12 +113,22 @@ const load = async (copies: CopyFile[], workers = 4) => {
 
     const answers = await inquirer.prompt([{
         type: 'input',
-        name: 'last_name',
-        message: "What's your last name",
-        default() {
-          return 'Doe';
-        },
+        name: 'SOURCE',
+        message: 'Entry point:',
+        default: () => process.cwd()
+    },{
+        type: 'input',
+        name: 'TARGET',
+        message: 'Cardify Directory:',
+        default: () => (process.platform == 'win32' ? 'E:\\' : '/run/media/mmcblk0p1/') + '__Cardify'
+    },{
+        type: 'number',
+        name: 'thresholdInMB',
+        message: 'File size threshold in MB?',
+        default: () => 100
     }]);
+
+    const {SOURCE, TARGET, thresholdInMB} = answers;
 
     console.log({answers});
 
