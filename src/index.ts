@@ -79,10 +79,10 @@ const load = async (copies: CopyFile[], workers = 4, createLink = true) => {
 
                 });
                 settledSize += filesize;
-                await unlink(src);
                 if(createLink){
                     await symlink(target, src);
                 }
+                await unlink(src);
 
             } catch (err) {
                 failed.push(src);
