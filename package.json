@@ -1,17 +1,18 @@
 {
-  "name": "@chemical-avocado/cardify",
-  "version": "0.0.1-alpha.4",
+  "name": "cardifi",
+  "version": "0.0.1-alpha.2",
   "type": "module",
   "main": "src/index.ts",
   "bin": {
-    "cardify": "dist/index.js"
+    "cardifi": "dist/index.js"
   },
   "license": "MIT",
   "scripts": {
     "debug": "nodemon",
-    "build": "tsc"
+    "build": "tsc",
+    "prepublish": "yarn build"
   },
-  "repository": "https://github.com/ChemicalAvocado/cardify",
+  "repository": "https://github.com/ChemicalAvocado/cardifi",
   "publishConfig": {
     "access": "public"
   },
