@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 
-import dotenv from 'dotenv';
 import recur from 'recursive-readdir';
 import bar from 'cli-progress';
-import { filesize } from 'filesize';
-import { symlink, mkdir, unlink, lstat } from 'node:fs/promises';
+import { filesize as filesizeFormat } from 'filesize';
+import { symlink, mkdir, unlink, lstat, readlink, writeFile } from 'node:fs/promises';
 import { lstatSync } from 'node:fs'
 import copyFile from 'cp-file';
 import inquirer from 'inquirer';
+//import PressToContinuePrompt from 'inquirer-press-to-continue';
+//import type { KeyDescriptor } from 'inquirer-press-to-continue';
 
 import path from 'node:path';
+import { stat } from 'fs-extra';
 
-dotenv.config();
+//inquirer.registerPrompt('press-to-continue', PressToContinuePrompt);
 
 interface CopyFile {
     src: string,
@@ -19,17 +21,17 @@ interface CopyFile {
     target: string,
     targetDir: string,
     displayPath: string,
-    size: number
+    filesize: number
 }
 
 //const { SOURCE = '', TARGET = '', thresholdInMB = 10 } = process.env;
 
+const CARDIFI_PREFIX = '__Cardify'
 
-
-const load = async (copies: CopyFile[], workers = 4) => {
+const load = async (copies: CopyFile[], workers = 4, createLink = true) => {
 
     const fullLength = copies.length;
-    const overallSize = copies.reduce((sum, cur) => sum + cur.size, 0);
+    const overallSize = copies.reduce((sum, cur) => sum + cur.filesize, 0);
     let settledSize = 0;
 
     const done = [];
@@ -41,7 +43,7 @@ const load = async (copies: CopyFile[], workers = 4) => {
         done: done.length,
         fullLength,
         written: 0,
-        overallSize: filesize(overallSize),
+        overallSize: filesizeFormat(overallSize),
         bandwidth: 0
     }, { format: `[{bar}] {done}/{fullLength} | {bandwidth}ps | {written} of {overallSize} | {percentage}%` });
 
@@ -49,10 +51,8 @@ const load = async (copies: CopyFile[], workers = 4) => {
         const entry = copies.shift();
 
         if (entry) {
-            const { src, size, target, displayPath, targetDir } = entry;
-
-
-
+            const { src, filesize, target, displayPath, targetDir } = entry;
+            
             try {
                 let lastUpdate = performance.now();
                 let lastWritten = 0;
@@ -66,25 +66,27 @@ const load = async (copies: CopyFile[], workers = 4) => {
                         const bandwidth = (p.writtenBytes - lastWritten) / (timeSpan / 1000);
 
                         overall.update(overallPercentage, {
-                            bandwidth: filesize(bandwidth)
+                            bandwidth: filesizeFormat(bandwidth)
                         });
 
                         lastWritten = p.writtenBytes;
                         lastUpdate = performance.now();
                     }
 
-                    bar.update(p.percent * 100, { src: displayPath, written: filesize(p.writtenBytes), size: filesize(size) });
+                    bar.update(p.percent * 100, { src: displayPath, written: filesizeFormat(p.writtenBytes), size: filesizeFormat(filesize) });
                     inprogress[workId] = p.percent * 100;
 
                     overall.update(overallPercentage, {
                         done: done.length + 1,
-                        written: filesize(settledSize + p.writtenBytes)
+                        written: filesizeFormat(settledSize + p.writtenBytes)
                     });
 
                 });
-                settledSize += size;
+                settledSize += filesize;
                 await unlink(src);
-                await symlink(target, src);
+                if(createLink){
+                    await symlink(target, src);
+                }
 
             } catch (err) {
                 failed.push(src);
@@ -108,54 +110,73 @@ const load = async (copies: CopyFile[], workers = 4) => {
     console.error(failed.join('\n'));
 };
 
-
-(async () => {
-
-    const answers = await inquirer.prompt([{
-        type: 'input',
-        name: 'SOURCE',
-        message: 'Entry point:',
-        default: () => process.cwd()
-    },{
-        type: 'input',
-        name: 'TARGET',
-        message: 'Cardify Directory:',
-        default: () => (process.platform == 'win32' ? 'E:\\' : '/run/media/mmcblk0p1/') + '__Cardify'
-    },{
-        type: 'number',
-        name: 'thresholdInMB',
-        message: 'File size threshold in MB?',
-        default: () => 100
+const restore = async () => {
+    const symlinks: string[] = [];
+    
+    //process.cwd();
+    await recur('D:\\EAPlay\\Crysis 3', [(file) => {
+        if (lstatSync(file).isSymbolicLink()) {
+            symlinks.push(file);
+        }
+        return false;
     }]);
 
-    const {SOURCE, TARGET, thresholdInMB} = answers;
+    const copies: CopyFile[] = [];
+    for(const symlink of symlinks){
+        const linkedPath = await readlink(symlink);
+        const originalDirSegments = linkedPath.split(path.delimiter);
 
-    console.log({answers});
+        if(originalDirSegments.includes(CARDIFI_PREFIX)){
+            const {size} = await stat(linkedPath);
+            const filename = originalDirSegments.pop();
 
+            const originalPathSegments = originalDirSegments.slice(originalDirSegments.indexOf(CARDIFI_PREFIX));
+            const drive = originalPathSegments.shift().replace('_DRIVE', ':');
+            const originalDirectory = path.join(drive, ...originalPathSegments);
+            const originalPath = path.join(originalDirectory, filename);
+
+            console.log(`${copies.length + 1}. ${filename} (${filesizeFormat(size)}) -> ${originalPath}`)
+            
+            copies.push({
+                src: linkedPath,
+                target: originalPath,
+                targetDir: originalDirectory,
+                filename,
+                filesize: size,
+                displayPath: originalPath
+            })
+        }
+    }
+
+
+    load(copies, 1, false);
+}
+const move = async (sourceRoot: string, cardifiRoot: string, thresholdInMB: number) => {
+    
     const copies: CopyFile[] = [];
 
-    await recur(SOURCE, [(file, stats) => {
+    await recur(sourceRoot, [(file, stats) => {
 
         if (stats.size > +thresholdInMB * 1000 * 1000 && !file.endsWith(".exe")) {
             if (!lstatSync(file).isSymbolicLink()) {
 
-                const originalDirSegments = file.split(/[\\\/]/g);
+                const originalDirSegments = file.split(path.delimiter);
                 const filename = originalDirSegments.pop();
 
                 const patch = [...originalDirSegments];
                 const drive = patch.shift().replace(":", "_DRIVE");
-                const targetDir = path.join(TARGET, drive, ...patch);
+                const targetDir = path.join(cardifiRoot, CARDIFI_PREFIX, drive, ...patch);
                 const target = path.join(targetDir, filename);
 
-                const displayPath = file.substring(SOURCE.length).split("\\").filter(s => s).join("\\");
-                console.log(`${copies.length + 1}. ${displayPath} (${filesize(stats.size)}) -> ${target}`)
+                const displayPath = file.substring(sourceRoot.length).split("\\").filter(s => s).join("\\");
+                console.log(`${copies.length + 1}. ${displayPath} (${filesizeFormat(stats.size)}) -> ${target}`);
 
                 copies.push({
                     src: file,
                     target,
                     targetDir,
                     filename,
-                    size: stats.size,
+                    filesize: stats.size,
                     displayPath
                 })
             }
@@ -163,6 +184,51 @@ const load = async (copies: CopyFile[], workers = 4) => {
         return false;
     }]);
 
+
+    await writeFile(
+        path.join(sourceRoot,`cardifi-restore.${process.platform == 'win32' ? 'bat' : 'sh'}`), 
+        `npx cardific -r`,
+        {encoding:'utf8',flag:'w'}
+    );
+
+
     await load(copies, 1);
+}
+
+
+(async () => {
+
+    const [arg] =process.argv
+
+    if(arg == '-r'){
+        await restore();
+    }else{
+
+        const answers = await inquirer.prompt([{
+            type: 'input',
+            name: 'sourceRoot',
+            message: 'Entry point:',
+            default: () => process.cwd()
+        },{
+            type: 'input',
+            name: 'cardifiRoot',
+            message: 'Cardifi Directory Location:',
+            default: () => (process.platform == 'win32' ? 'E:\\' : '/run/media/mmcblk0p1/')
+        },{
+            type: 'number',
+            name: 'thresholdInMB',
+            message: 'File size threshold in MB?',
+            default: () => 100
+        }]);
+        console.log({answers});
+
+        const {sourceRoot, cardifiRoot, thresholdInMB} = answers;
+
+        move(sourceRoot, cardifiRoot, thresholdInMB);
+
+    }
+
+
+
 })();
 
