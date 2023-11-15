@@ -1,6 +1,6 @@
 {
   "name": "cardifi",
-  "version": "0.0.1-beta.1",
+  "version": "0.0.1-beta.2",
   "main": "src/index.ts",
   "type": "module",
   "bin": {
@@ -10,7 +10,8 @@
   "scripts": {
     "debug": "nodemon",
     "build": "tsc",
-    "prepublish": "yarn build"
+    "prepublish": "yarn build",
+    "start": "node ./dist/index.js"
   },
   "repository": "https://github.com/ChemicalAvocado/cardifi",
   "publishConfig": {
@@ -20,18 +21,24 @@
     "@types/cli-progress": "^3.11.5",
     "@types/fs-extra": "^11.0.4",
     "@types/inquirer": "^9.0.7",
+    "@types/node-windows": "^0.1.6",
     "@types/recursive-readdir": "^2.2.4",
+    "@types/tcp-port-used": "^1.0.4",
+    "@types/windows-elevate": "^1.0.3",
     "cli-progress": "^3.12.0",
     "cp-file": "9",
     "dotenv": "^16.3.1",
     "filesize": "^10.1.0",
     "fs-extra": "^11.1.1",
     "inquirer": "^9.2.12",
+    "is-admin": "^4.0.0",
     "multiply-tool": "^1.0.1",
     "nodemon": "^3.0.1",
     "recursive-readdir": "^2.2.3",
+    "tcp-port-used": "^1.0.2",
     "ts-node": "^10.9.1",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "windows-elevate": "^1.0.1"
   }
 }
